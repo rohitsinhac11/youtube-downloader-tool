@@ -1,5 +1,4 @@
-
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, jsonify
 from pytube import YouTube
 import os
 
@@ -9,19 +8,26 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-@app.route('/download', methods=['POST'])
+@app.route('/api/download', methods=['POST'])
 def download():
     try:
-        url = request.form['url']
+        data = request.get_json()
+        url = data.get('url')
         yt = YouTube(url)
         stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-        filename = stream.download()
-        return send_file(filename, as_attachment=True)
-    except Exception as e:
-        return f"Error: {e}"
+        
+        return jsonify({
+            'title': yt.title,
+            'thumbnail': yt.thumbnail_url,
+            'formats': [{
+                'url': stream.url,
+                'resolution': stream.resolution
+            }]
+        })
 
-# Needed for Render
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
